@@ -92,18 +92,27 @@ function WalletInitializer({ children }: { children: ReactNode }) {
   // Connect wallet function
   const connectWallet = async () => {
     try {
-      if (window && window.solana) {
-        // Try to connect using the wallet adapter
-        await connect();
+      // Check for real wallet
+      if (typeof window !== 'undefined' && window.solana) {
+        try {
+          // Try to connect using the wallet adapter
+          console.log("Real wallet detected, attempting to connect");
+          await connect();
+          console.log("Successfully connected to real wallet");
+        } catch (error) {
+          console.error('Error connecting to real wallet:', error);
+          // Fall back to simulated wallet on error
+          console.log('Falling back to simulated wallet');
+          setIsSimulatedWallet(true);
+        }
       } else {
-        // Fall back to simulated wallet if no real wallet available
+        // No real wallet, use simulation
         console.log('No wallet detected, using simulated wallet');
         setIsSimulatedWallet(true);
       }
     } catch (error) {
-      console.error('Error connecting wallet:', error);
-      // Fall back to simulated wallet on error
-      console.log('Error connecting to wallet, using simulated wallet');
+      console.error('Error in connectWallet:', error);
+      // Always ensure we fall back to simulation
       setIsSimulatedWallet(true);
     }
   };
@@ -113,7 +122,7 @@ function WalletInitializer({ children }: { children: ReactNode }) {
     try {
       if (isSimulatedWallet) {
         setIsSimulatedWallet(false);
-      } else {
+      } else if (connected) {
         await disconnect();
       }
     } catch (error) {
@@ -123,6 +132,7 @@ function WalletInitializer({ children }: { children: ReactNode }) {
   
   // Simulate wallet connection (for testing)
   const simulateWalletConnection = () => {
+    console.log("Simulating wallet connection");
     setIsSimulatedWallet(true);
   };
   

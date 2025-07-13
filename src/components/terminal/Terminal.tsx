@@ -37,7 +37,7 @@ export default function Terminal() {
   
   const [isReady, setIsReady] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
   
   // Panel states
   const [showMintPanel, setShowMintPanel] = useState(false);
@@ -90,6 +90,13 @@ export default function Terminal() {
     return () => clearInterval(interval);
   }, [addEntries]);
   
+  // Auto-scroll terminal to bottom when new content is added
+  useEffect(() => {
+    if (outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+    }
+  }, [history]);
+  
   // Process command input
   const handleCommandSubmit = async (command: string) => {
     // Add command to history
@@ -98,16 +105,22 @@ export default function Terminal() {
     // Process command
     const result = await processCommandInput(command);
     
+    // Handle clear command directly
+    if (command.trim().toLowerCase() === '/clear' || command.trim().toLowerCase() === 'clear') {
+      clearTerminal();
+      return;
+    }
+    
     // Check for panel commands
-    if (command.toLowerCase() === '/mint') {
+    if (command.trim().toLowerCase() === '/mint' || command.trim().toLowerCase() === 'mint') {
       setShowMintPanel(true);
       setShowChatPanel(false);
       setShowSecretPanel(false);
-    } else if (command.toLowerCase() === '/chat') {
+    } else if (command.trim().toLowerCase() === '/chat' || command.trim().toLowerCase() === 'chat') {
       setShowChatPanel(true);
       setShowMintPanel(false);
       setShowSecretPanel(false);
-    } else if (command.toLowerCase() === '/classified') {
+    } else if (command.trim().toLowerCase() === '/classified' || command.trim().toLowerCase() === 'classified') {
       if (connected && accessLevel > 0) {
         setShowSecretPanel(true);
         setShowMintPanel(false);
@@ -124,6 +137,13 @@ export default function Terminal() {
     if (result.length > 0) {
       addEntries(result);
     }
+    
+    // Auto-scroll to bottom after command execution
+    setTimeout(() => {
+      if (outputRef.current) {
+        outputRef.current.scrollTop = outputRef.current.scrollHeight;
+      }
+    }, 10);
     
     // Random chance for glitch effect
     if (Math.random() < 0.05) {
@@ -147,8 +167,10 @@ export default function Terminal() {
   
   // Focus on input when terminal is clicked
   const focusInput = () => {
-    if (inputRef.current) {
-      inputRef.current.focus();
+    // Use proper casting to HTMLInputElement to access focus method
+    const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+    if (inputElement) {
+      inputElement.focus();
     }
   };
   
@@ -164,7 +186,10 @@ export default function Terminal() {
       {/* Main terminal area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Terminal output */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div 
+          className="flex-1 overflow-y-auto p-4"
+          ref={outputRef}
+        >
           <TerminalOutput history={history} />
         </div>
         

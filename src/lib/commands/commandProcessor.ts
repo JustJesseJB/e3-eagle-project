@@ -1,3 +1,5 @@
+// src/lib/commands/commandProcessor.ts
+
 import { TerminalEntry } from '@/contexts/TerminalContext';
 
 // Type for command handler functions
@@ -5,7 +7,7 @@ export type CommandHandler = (args: string[]) => Promise<TerminalEntry[]>;
 
 // Command registry to store all available commands
 class CommandRegistry {
-  private commands: Record<string, CommandHandler> = {};
+  public commands: Record<string, CommandHandler> = {};
   
   // Register a new command
   register(commandName: string, handler: CommandHandler): void {
@@ -21,101 +23,76 @@ class CommandRegistry {
       const nameWithoutSlash = normalizedName.substring(1);
       this.commands[nameWithoutSlash] = handler;
     }
+
+    console.log(`Command registered: ${commandName}`);
   }
   
   // Check if a command exists
   exists(commandName: string): boolean {
-    return !!this.commands[commandName];
+    return commandName in this.commands;
   }
   
   // Execute a command
-  async execute(commandName: string, args: string[] = []): Promise<TerminalEntry[]> {
-    const handler = this.commands[commandName];
-    
-    if (!handler) {
+  async execute(commandName: string, args: string[]): Promise<TerminalEntry[]> {
+    if (this.exists(commandName)) {
+      try {
+        console.log(`Executing command: ${commandName} with args:`, args);
+        return await this.commands[commandName](args);
+      } catch (error) {
+        console.error(`Error executing command ${commandName}:`, error);
+        return [
+          { type: 'error' as const, text: `Error executing command: ${commandName}` },
+          { type: 'system' as const, text: 'Please try again or check console for details.' }
+        ];
+      }
+    } else {
+      console.warn(`Command not found: ${commandName}`);
       return [
-        { type: 'error', text: `Command not recognized: ${commandName}` },
-        { type: 'system', text: 'Type /help for available commands' }
+        { type: 'error' as const, text: `Unknown command: ${commandName}` },
+        { type: 'system' as const, text: 'Type /help for a list of available commands.' }
       ];
     }
-    
-    try {
-      return await handler(args);
-    } catch (error) {
-      console.error(`Error executing command ${commandName}:`, error);
-      return [
-        { type: 'error', text: `Error executing command: ${commandName}` },
-        { type: 'error', text: (error as Error).message || 'Unknown error occurred' }
-      ];
-    }
-  }
-  
-  // Get list of all registered commands
-  getCommandList(): string[] {
-    // Only return the commands with / prefix for the help menu
-    return Object.keys(this.commands).filter(cmd => cmd.startsWith('/'));
   }
 }
 
-// Create and export a singleton instance
+// Create a singleton command registry
 export const commandRegistry = new CommandRegistry();
 
-// Function to parse command input
-export function parseCommand(input: string): { command: string, args: string[] } {
+// Process a command input string
+export async function processCommandInput(input: string): Promise<TerminalEntry[]> {
+  // Trim input and check if it's empty
   const trimmedInput = input.trim();
+  if (!trimmedInput) {
+    return [];
+  }
   
-  // Split by spaces, but respect quoted arguments
-  const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
-  const parts: string[] = [];
-  let match;
+  // Parse command and arguments
+  const parts = trimmedInput.split(' ');
+  let command = parts[0];
+  const args = parts.slice(1);
   
-  while ((match = regex.exec(trimmedInput)) !== null) {
-    // If the match is a quoted string, use the captured group
-    // Otherwise use the full match
-    if (match[1] || match[2]) {
-      parts.push(match[1] || match[2]);
-    } else {
-      parts.push(match[0]);
+  // Normalize command (add / prefix if missing)
+  if (!command.startsWith('/')) {
+    // Check if the command exists without / first
+    if (commandRegistry.exists(command)) {
+      // If it exists without /, use it as is
+    } else if (commandRegistry.exists(`/${command}`)) {
+      // Otherwise, add / prefix
+      command = `/${command}`;
     }
   }
   
-  // First part is the command, rest are arguments
-  const command = parts[0] || '';
-  const args = parts.slice(1);
-  
-  return { command, args };
-}
-
-// Process an input string
-export async function processCommandInput(input: string): Promise<TerminalEntry[]> {
-  // Add the input to history
-  const historyEntry: TerminalEntry = {
-    type: 'input',
-    text: `> ${input}`
-  };
-  
-  // If empty input, just return the history entry
-  if (!input.trim()) {
-    return [historyEntry];
-  }
-  
-  // Parse the command and arguments
-  const { command, args } = parseCommand(input);
+  console.log(`Processing command: ${command} with args:`, args);
+  console.log(`Available commands:`, Object.keys(commandRegistry.commands));
   
   // Execute the command
-  const commandResponse = await commandRegistry.execute(command, args);
-  
-  // Return both the input history and the command response
-  return [historyEntry, ...commandResponse];
-}
-
-// Easter egg: randomly trigger a glitch effect with small probability
-export function maybeGlitch(): TerminalEntry | null {
-  if (Math.random() > 0.9) {
-    return { 
-      type: 'glitch', 
-      text: 'E̵̛͖͊R̴̡̗̓̕Ř̸̹̂O̶̰̍̈́R̷̰̦̽:̶͈̓͋ ̶̮̍S̶̻̉̓E̷̮̚Q̷̫̈́̉U̵̪͝E̶̛̼̱̒N̶̳̈́C̸̜̍E̶̩̎ ̸̼̮̔̀C̸̲̰̓̊O̷̠͑Ṛ̶̡̔R̸͚͑U̶̥̞̔P̷͎̂T̶̼̐̈E̴̪̼̎D̸̲̈́̍' 
-    };
+  try {
+    return await commandRegistry.execute(command, args);
+  } catch (error) {
+    console.error('Error processing command:', error);
+    return [
+      { type: 'error' as const, text: 'An error occurred while processing your command.' },
+      { type: 'system' as const, text: 'Please try again or type /help for assistance.' }
+    ];
   }
-  return null;
 }
