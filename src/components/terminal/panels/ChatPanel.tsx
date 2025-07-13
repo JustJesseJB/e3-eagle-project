@@ -1,6 +1,9 @@
+// src/components/terminal/panels/ChatPanel.tsx
+
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useWalletIntegration } from '@/contexts/WalletContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { shortenAddress } from '@/utils/addresses';
 
 type ChatMessage = {
@@ -11,6 +14,7 @@ type ChatMessage = {
 
 export default function ChatPanel() {
   const { connected, shortenedAddress } = useWalletIntegration();
+  const { config } = useAdmin();
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {user: 'System', message: 'Welcome to the Eagle Comm-Link'},
@@ -33,8 +37,10 @@ export default function ChatPanel() {
     }
   }, [chatMessages]);
   
-  // Simulate chat activity
+  // Simulate chat activity if enabled
   useEffect(() => {
+    if (!config.enableSimulatedChat) return;
+    
     const simulateChatActivity = () => {
       const users = ['EagleOne', 'Talon42', 'WingCommander', 'NestWatcher', 'DigitalEagle'];
       const messages = [
@@ -60,7 +66,7 @@ export default function ChatPanel() {
 
     const interval = setInterval(simulateChatActivity, 5000 + Math.random() * 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [config.enableSimulatedChat]);
   
   // Handle chat message submission
   const handleChatSubmit = (e: React.FormEvent) => {
@@ -75,25 +81,27 @@ export default function ChatPanel() {
     }]);
     setChatInput('');
     
-    // Simulate response
-    setTimeout(() => {
-      if (Math.random() > 0.7) {
-        const users = ['EagleOne', 'Talon42', 'WingCommander', 'NestWatcher', 'DigitalEagle'];
-        const randomUser = users[Math.floor(Math.random() * users.length)];
-        const responses = [
-          'interesting theory...',
-          'have you tried the classified section?',
-          'not sure about that',
-          'check the coordinates again',
-          'that might be a clue',
-          'I think you\'re onto something',
-          'shhh they\'re listening',
-          'did you decode the binary?'
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        setChatMessages(prev => [...prev, { user: randomUser, message: randomResponse }]);
-      }
-    }, 1000 + Math.random() * 2000);
+    // Simulate response if enabled
+    if (config.enableSimulatedChat) {
+      setTimeout(() => {
+        if (Math.random() > 0.7) {
+          const users = ['EagleOne', 'Talon42', 'WingCommander', 'NestWatcher', 'DigitalEagle'];
+          const randomUser = users[Math.floor(Math.random() * users.length)];
+          const responses = [
+            'interesting theory...',
+            'have you tried the classified section?',
+            'not sure about that',
+            'check the coordinates again',
+            'that might be a clue',
+            'I think you\'re onto something',
+            'shhh they\'re listening',
+            'did you decode the binary?'
+          ];
+          const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+          setChatMessages(prev => [...prev, { user: randomUser, message: randomResponse }]);
+        }
+      }, 1000 + Math.random() * 2000);
+    }
   };
   
   return (

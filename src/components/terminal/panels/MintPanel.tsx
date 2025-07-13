@@ -3,20 +3,26 @@
 'use client';
 import { useState } from 'react';
 import { useWalletIntegration } from '@/contexts/WalletContext';
-import { useTerminal } from '@/contexts/TerminalContext';
+import { useTerminal, TerminalEntry } from '@/contexts/TerminalContext';
+import { useAdmin } from '@/contexts/AdminContext';
+import { useAssets, Eagle } from '@/contexts/AssetsContext';
 
 export default function MintPanel() {
   const [mintQuantity, setMintQuantity] = useState(1);
   const [mintingInProgress, setMintingInProgress] = useState(false);
   
-  const { connected, connectWallet, simulateWalletConnection } = useWalletIntegration();
+  const { connected, connectWallet, simulateWalletConnection, setShowWalletModal } = useWalletIntegration();
   const { addEntries } = useTerminal();
+  const { config } = useAdmin();
+  const { addEagle } = useAssets();
+  
+  // Define rarities with proper type
+  const rarities: string[] = ['Common', 'Rare', 'Epic', 'Legendary'];
+  const rarityWeights: number[] = [0.6, 0.25, 0.1, 0.05];
   
   // Generate random Eagle NFT data
-  const generateRandomEagle = () => {
-    const rarities = ['Common', 'Rare', 'Epic', 'Legendary'];
-    const rarityWeights = [0.6, 0.25, 0.1, 0.05];
-    const traitCategories = [
+  const generateRandomEagle = (): Eagle => {
+    const traitCategories: string[][] = [
       ['Red Eyes', 'Blue Eyes', 'Green Eyes', 'Purple Eyes'],
       ['Battle Scar', 'Gold Beak', 'Titanium Claws', 'None'],
       ['Alpha Plumage', 'Steel Feathers', 'Royal Crown', 'None'],
@@ -55,11 +61,27 @@ export default function MintPanel() {
     const powerVariance = basePower * 0.2; // 20% variance
     const power = Math.floor(basePower + (Math.random() * 2 - 1) * powerVariance);
     
+    // Generate a unique eagle ID
+    const idNumber = Math.floor(100 + Math.random() * 900); // 3-digit number between 100-999
+    
+    const names: Record<string, string[]> = {
+      'Common': ['Scout', 'Hunter', 'Striker', 'Observer'],
+      'Rare': ['Storm Talon', 'Sky Watcher', 'Dawn Rider', 'Cloud Striker'],
+      'Epic': ['Shadow Wing', 'Thunder Beak', 'Frost Claw', 'Solar Gaze'],
+      'Legendary': ['Eagle Guardian', 'Celestial Sovereign', 'Eternal Watcher', 'Quantum Eagle']
+    };
+    
+    const nameOptions = names[rarity] || names['Common'];
+    const name = nameOptions[Math.floor(Math.random() * nameOptions.length)];
+    
     return {
-      id: `Eagle #${Math.floor(Math.random() * 10000)}`,
+      id: `E3D-${idNumber}`,
+      name: `${name} ${rarity === 'Legendary' ? 'Alpha' : rarity === 'Epic' ? 'Prime' : ''}`,
       rarity,
       traits,
-      power
+      power,
+      mintDate: new Date().toLocaleString(),
+      image: 'https://i.ibb.co/VVc9kvL/eagle-nft.jpg'
     };
   };
   
@@ -68,8 +90,17 @@ export default function MintPanel() {
     // Check if wallet is connected
     if (!connected) {
       addEntries([
-        { type: 'error' as const, text: 'ERROR: Wallet not connected' },
-        { type: 'system' as const, text: 'Use /connect to connect your wallet before minting' }
+        { type: 'error', text: 'ERROR: Wallet not connected' },
+        { type: 'system', text: 'Use /connect to connect your wallet before minting' }
+      ]);
+      return;
+    }
+    
+    // Check if minting is enabled in admin settings
+    if (!config.mintEnabled) {
+      addEntries([
+        { type: 'error', text: 'ERROR: Minting is currently disabled' },
+        { type: 'system', text: 'Please try again later' }
       ]);
       return;
     }
@@ -78,134 +109,148 @@ export default function MintPanel() {
     
     // Simulate blockchain delay
     setTimeout(() => {
-      const newMints = [];
+      const newMints: Eagle[] = [];
       for (let i = 0; i < mintQuantity; i++) {
-        newMints.push(generateRandomEagle());
+        const newEagle = generateRandomEagle();
+        newMints.push(newEagle);
+        
+        // Add to assets context
+        addEagle(newEagle);
       }
       
       setMintingInProgress(false);
       
       // Add to terminal history
-      const responses = [
-        { type: 'system' as const, text: `Processing mint transaction...` },
-        { type: 'success' as const, text: `Successfully minted ${mintQuantity} E3 Eagle${mintQuantity > 1 ? 's' : ''}!` },
-        { type: 'data' as const, text: newMints.map(eagle => eagle.id).join(', ') }
+      // Create an array of TerminalEntry objects with explicit types
+      const responses: TerminalEntry[] = [
+        { type: 'system', text: `Processing mint transaction...` },
+        { type: 'success', text: `Successfully minted ${mintQuantity} E3 Eagle${mintQuantity > 1 ? 's' : ''}!` }
       ];
       
-      addEntries(responses);
+      // Add each eagle to the response
+      newMints.forEach(eagle => {
+        responses.push({
+          type: 'data', 
+          text: `${eagle.id} (${eagle.rarity})`, 
+          eagleId: eagle.id
+        });
+      });
       
-    }, 3000); // 3 second simulated blockchain time
+      responses.push({ type: 'system', text: 'Use "/assets" to view your collection.' });
+      
+      addEntries(responses);
+    }, 2000);
   };
   
-  // Simulate wallet connection (for testing only)
-  const handleSimulateWallet = () => {
-    try {
-      // Use the simulateWalletConnection function directly
+  // Handle connect wallet button
+  const handleConnectWallet = () => {
+    if (config.enableRealWalletOption && config.enableSimulatedWallet) {
+      // Show wallet selection modal
+      setShowWalletModal(true);
+    } else if (config.enableRealWalletOption) {
+      // Connect real wallet
+      connectWallet();
+    } else if (config.enableSimulatedWallet) {
+      // Use simulated wallet
       simulateWalletConnection();
-      
-      // Notify the user in the terminal
-      addEntries([
-        { type: 'system' as const, text: 'Simulating wallet connection...' },
-        { type: 'success' as const, text: 'Connected to simulated wallet: 8xH5f...q3B7' }
-      ]);
-    } catch (error) {
-      console.error('Error simulating wallet:', error);
-      addEntries([
-        { type: 'error' as const, text: 'Failed to simulate wallet connection' },
-        { type: 'system' as const, text: 'Please refresh the page and try again' }
-      ]);
     }
   };
   
   return (
-    <div>
-      <div className="mb-4 text-center">
-        <div className="inline-block p-1 border border-cyan-500/50 rounded mb-2">
-          <div 
-            className="w-40 h-40 bg-gradient-to-r from-blue-900 to-purple-900 flex items-center justify-center"
+    <div className="space-y-4 text-sm">
+      {/* Connection status */}
+      {!connected ? (
+        <div className="border border-yellow-500/30 p-3 bg-yellow-900/20 rounded">
+          <div className="text-yellow-400 mb-2">Wallet not connected</div>
+          <button 
+            className="bg-green-700/50 text-white px-3 py-2 rounded text-xs w-full hover:bg-green-700/70 transition"
+            onClick={handleConnectWallet}
           >
-            <img 
-              src="https://i.ibb.co/VVc9kvL/eagle-nft.jpg" 
-              alt="E3 Eagle NFT" 
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjE2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMkQzNzQ4Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOEJFOUZEIj5FM0VhZ2xlIE5GVDwvdGV4dD48L3N2Zz4=';
-              }}
-            />
-          </div>
+            Connect Wallet
+          </button>
         </div>
-        <div className="text-cyan-400 text-sm">E3 EAGLE NFT</div>
-        <div className="text-gray-400 text-xs">Series Alpha</div>
-      </div>
+      ) : (
+        <div className="border border-green-500/30 p-3 bg-green-900/20 rounded">
+          <div className="text-green-400 mb-1">Wallet Connected</div>
+          <div className="text-gray-400 text-xs">Ready to mint Eagles</div>
+        </div>
+      )}
       
-      <div className="space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Price:</span>
-          <span className="text-white">1.5 SOL</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Available:</span>
-          <span className="text-white">731 / 1000</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Status:</span>
-          <span className="text-green-400">LIVE</span>
-        </div>
+      {/* Mint options */}
+      <div className="border border-blue-500/30 p-3 bg-blue-900/10 rounded">
+        <div className="text-blue-400 mb-3">Mint Settings</div>
         
-        <div className="flex items-center justify-between mt-2 mb-4">
-          <span className="text-gray-400">Quantity:</span>
-          <div className="flex items-center">
+        <div className="mb-3">
+          <label className="block text-gray-400 mb-1 text-xs">Quantity</label>
+          <div className="flex">
             <button 
-              className="w-8 h-8 bg-gray-800 text-white flex items-center justify-center rounded-l touch-manipulation"
-              onClick={() => mintQuantity > 1 && setMintQuantity(mintQuantity - 1)}
-            >-</button>
-            <div className="w-10 h-8 bg-gray-900 text-white flex items-center justify-center">
+              className="bg-gray-800 px-3 py-1 rounded-l border border-gray-700"
+              onClick={() => setMintQuantity(Math.max(1, mintQuantity - 1))}
+            >
+              -
+            </button>
+            <div className="bg-gray-900 px-4 py-1 border-t border-b border-gray-700 flex items-center justify-center min-w-[40px]">
               {mintQuantity}
             </div>
             <button 
-              className="w-8 h-8 bg-gray-800 text-white flex items-center justify-center rounded-r touch-manipulation"
-              onClick={() => mintQuantity < 5 && setMintQuantity(mintQuantity + 1)}
-            >+</button>
-          </div>
-        </div>
-        
-        <div className="pt-2">
-          <button 
-            className={`w-full ${
-              mintingInProgress || !connected
-                ? 'bg-gray-700 text-gray-300' 
-                : 'bg-gradient-to-r from-cyan-900 to-blue-900 hover:from-cyan-800 hover:to-blue-800 text-cyan-300'
-            } p-3 rounded border border-cyan-700/50 transition relative touch-manipulation`}
-            onClick={handleMint}
-            disabled={mintingInProgress || !connected}
-          >
-            {mintingInProgress ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin mr-2 h-4 w-4 border-2 border-cyan-300 border-t-transparent rounded-full"></div>
-                MINTING...
-              </div>
-            ) : !connected ? (
-              'CONNECT WALLET FIRST'
-            ) : (
-              'MINT E3 EAGLE'
-            )}
-          </button>
-        </div>
-        
-        {!connected && (
-          <div className="pt-2">
-            <button 
-              className="w-full bg-gray-800 text-yellow-300 p-2 rounded border border-yellow-700/50 transition touch-manipulation"
-              onClick={handleSimulateWallet}
+              className="bg-gray-800 px-3 py-1 rounded-r border border-gray-700"
+              onClick={() => setMintQuantity(Math.min(10, mintQuantity + 1))}
             >
-              SIMULATE WALLET CONNECTION
+              +
             </button>
           </div>
-        )}
+        </div>
         
-        <div className="text-gray-600 text-xs text-center mt-2">
-          ENCRYPTED TRANSACTION PROTOCOL
+        <div className="mb-3">
+          <div className="text-gray-400 text-xs mb-1">Price per Eagle</div>
+          <div className="text-white">{config.mintPrice} SOL</div>
+        </div>
+        
+        <div className="mb-3">
+          <div className="text-gray-400 text-xs mb-1">Total Cost</div>
+          <div className="text-white">{(config.mintPrice * mintQuantity).toFixed(2)} SOL</div>
+        </div>
+        
+        <button 
+          className={`
+            w-full py-2 rounded text-white mt-2
+            ${mintingInProgress 
+              ? 'bg-purple-700/50 cursor-not-allowed' 
+              : connected
+                ? 'bg-purple-700 hover:bg-purple-600 transition'
+                : 'bg-gray-700/50 cursor-not-allowed'
+            }
+          `}
+          onClick={handleMint}
+          disabled={mintingInProgress || !connected}
+        >
+          {mintingInProgress 
+            ? 'Minting...' 
+            : `Mint ${mintQuantity} Eagle${mintQuantity > 1 ? 's' : ''}`
+          }
+        </button>
+      </div>
+      
+      {/* Project info */}
+      <div className="border border-gray-500/30 p-3 bg-gray-900/20 rounded">
+        <div className="text-gray-400 mb-2">Project Info</div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <div className="text-gray-500">Network</div>
+            <div className="text-white">{config.networkType === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Max Supply</div>
+            <div className="text-white">{config.maxSupply.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Minted</div>
+            <div className="text-white">{config.currentSupply.toLocaleString()}</div>
+          </div>
+          <div>
+            <div className="text-gray-500">Remaining</div>
+            <div className="text-white">{(config.maxSupply - config.currentSupply).toLocaleString()}</div>
+          </div>
         </div>
       </div>
     </div>

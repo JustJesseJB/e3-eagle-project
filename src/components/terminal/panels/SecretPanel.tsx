@@ -1,15 +1,27 @@
+// src/components/terminal/panels/SecretPanel.tsx
+
 'use client';
 import { useTerminal } from '@/contexts/TerminalContext';
 
 export default function SecretPanel() {
-  const { triggerGlitch } = useTerminal();
+  const { triggerGlitch, addEntries } = useTerminal();
   
   const handleDecodeCommand = () => {
     // Trigger glitch effect
     triggerGlitch();
     
-    // Add a simulated output to the terminal (you'd need to modify this to work with your command system)
-    // For now, we'll just trigger the visual effect
+    // Add decoded message to terminal
+    setTimeout(() => {
+      addEntries([
+        { type: 'system', text: 'DECRYPTION ATTEMPT INITIATED' },
+        { type: 'glitch', text: 'WARNING: UNAUTHORIZED ACCESS DETECTED' },
+        { type: 'glitch', text: 'SECURITY PROTOCOLS ENGAGED' },
+        { type: 'data', text: 'DECODING BINARY: "NEXT DROP 7/15"' },
+        { type: 'data', text: 'COORDINATES IDENTIFIED: AREA 51 PROXIMITY' },
+        { type: 'hidden', text: 'SECURITY LEVEL INCREASED TO PREVENT FURTHER INTRUSION' },
+        { type: 'system', text: 'Connection stabilized. Further access restricted.' }
+      ]);
+    }, 800);
   };
   
   return (

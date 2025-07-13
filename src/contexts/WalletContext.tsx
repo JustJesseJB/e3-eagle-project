@@ -1,5 +1,6 @@
 // src/contexts/WalletContext.tsx
 
+'use client';
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { 
   ConnectionProvider,
@@ -32,6 +33,9 @@ const InternalWalletContext = createContext<{
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   simulateWalletConnection: () => void;
+  publicKey: string | null;
+  showWalletModal: boolean;
+  setShowWalletModal: (show: boolean) => void;
 }>({
   shortenedAddress: null,
   isConnecting: false,
@@ -39,6 +43,9 @@ const InternalWalletContext = createContext<{
   connectWallet: async () => {},
   disconnectWallet: async () => {},
   simulateWalletConnection: () => {},
+  publicKey: null,
+  showWalletModal: false,
+  setShowWalletModal: () => {},
 });
 
 export interface WalletEvents {
@@ -65,13 +72,26 @@ export const walletEvents: WalletEvents = {
   }
 };
 
+// Generate a random address for simulation
+const generateRandomAddress = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 44; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 // Custom component to initialize wallet integration
 function WalletInitializer({ children }: { children: ReactNode }) {
   const { publicKey, connect, disconnect, connecting, connected } = useWallet();
   const { connection } = useConnection();
+  
   const [isSimulatedWallet, setIsSimulatedWallet] = useState(false);
   const [simulatedAddress, setSimulatedAddress] = useState('8xH5f...q3B7');
+  const [simulatedPublicKey, setSimulatedPublicKey] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   
   // Update connection status based on real or simulated wallet
   useEffect(() => {
@@ -86,43 +106,32 @@ function WalletInitializer({ children }: { children: ReactNode }) {
     : null;
   
   const displayAddress = isSimulatedWallet 
-    ? simulatedAddress 
+    ? simulatedAddress
     : realShortenedAddress;
   
-  // Connect wallet function
+  const actualPublicKey = isSimulatedWallet
+    ? simulatedPublicKey
+    : publicKey?.toString() || null;
+  
+  // Connect to wallet
   const connectWallet = async () => {
     try {
-      // Check for real wallet
-      if (typeof window !== 'undefined' && window.solana) {
-        try {
-          // Try to connect using the wallet adapter
-          console.log("Real wallet detected, attempting to connect");
-          await connect();
-          console.log("Successfully connected to real wallet");
-        } catch (error) {
-          console.error('Error connecting to real wallet:', error);
-          // Fall back to simulated wallet on error
-          console.log('Falling back to simulated wallet');
-          setIsSimulatedWallet(true);
-        }
-      } else {
-        // No real wallet, use simulation
-        console.log('No wallet detected, using simulated wallet');
-        setIsSimulatedWallet(true);
-      }
+      if (connecting) return;
+      
+      await connect();
     } catch (error) {
-      console.error('Error in connectWallet:', error);
-      // Always ensure we fall back to simulation
-      setIsSimulatedWallet(true);
+      console.error('Error connecting to wallet:', error);
     }
   };
   
-  // Disconnect wallet function
+  // Disconnect wallet
   const disconnectWallet = async () => {
     try {
       if (isSimulatedWallet) {
         setIsSimulatedWallet(false);
-      } else if (connected) {
+        setSimulatedAddress('');
+        setSimulatedPublicKey(null);
+      } else {
         await disconnect();
       }
     } catch (error) {
@@ -130,39 +139,38 @@ function WalletInitializer({ children }: { children: ReactNode }) {
     }
   };
   
-  // Simulate wallet connection (for testing)
+  // Simulate wallet connection
   const simulateWalletConnection = () => {
     console.log("Simulating wallet connection");
+    const fullAddress = generateRandomAddress();
     setIsSimulatedWallet(true);
+    setSimulatedAddress(shortenAddress(fullAddress));
+    setSimulatedPublicKey(fullAddress);
   };
   
   return (
-    <InternalWalletContext.Provider
-      value={{
-        shortenedAddress: displayAddress,
-        isConnecting: connecting,
-        connected: isConnected,
-        connectWallet,
-        disconnectWallet,
-        simulateWalletConnection
-      }}
-    >
+    <InternalWalletContext.Provider value={{
+      shortenedAddress: displayAddress,
+      isConnecting: connecting,
+      connected: isConnected,
+      connectWallet,
+      disconnectWallet,
+      simulateWalletConnection,
+      publicKey: actualPublicKey,
+      showWalletModal,
+      setShowWalletModal
+    }}>
       {children}
     </InternalWalletContext.Provider>
   );
 }
 
-// Main wallet provider that wraps everything
+// Main wallet provider component
 export function WalletContextProvider({ children }: { children: ReactNode }) {
-  // Set up Solana network
-  const network = WalletAdapterNetwork.Devnet; // Change to Mainnet for production
-  
-  // Use a dedicated RPC endpoint for better reliability
-  const endpoint = network === WalletAdapterNetwork.Devnet
-    ? clusterApiUrl(network)  
-    : 'https://solana-mainnet.g.alchemy.com/v2/your-api-key'; // Replace with your production RPC
-  
   // Set up wallet adapters
+  const network = WalletAdapterNetwork.Devnet;
+  const endpoint = clusterApiUrl(network);
+  
   const wallets = [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter(),
@@ -183,7 +191,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook to use our wallet functionality
+// Hook for easy context access
 export function useWalletIntegration() {
   return useContext(InternalWalletContext);
 }

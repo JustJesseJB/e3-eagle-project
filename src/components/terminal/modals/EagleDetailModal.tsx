@@ -1,16 +1,16 @@
 'use client';
+import { Eagle } from '@/contexts/AssetsContext';
 
 interface EagleDetailModalProps {
-  eagle: {
-    id: string;
-    rarity: string;
-    traits: string[];
-    power: number;
-  };
+  eagle: Eagle | null;
   onClose: () => void;
+  isOpen: boolean;
 }
 
-export default function EagleDetailModal({ eagle, onClose }: EagleDetailModalProps) {
+export default function EagleDetailModal({ eagle, onClose, isOpen }: EagleDetailModalProps) {
+  // Early return if modal is not open or no eagle is provided
+  if (!isOpen || !eagle) return null;
+  
   // Determine rarity color
   const getRarityColor = (rarity: string) => {
     switch(rarity) {
@@ -21,6 +21,22 @@ export default function EagleDetailModal({ eagle, onClose }: EagleDetailModalPro
       default: return 'text-white';
     }
   };
+  
+  // Handle eagle traits whether they're in array or object format
+  const getTraitsList = () => {
+    if (Array.isArray(eagle.traits)) {
+      return eagle.traits;
+    } else if (typeof eagle.traits === 'object' && eagle.traits !== null) {
+      // Convert object traits to array format
+      const traitsObj = eagle.traits as any;
+      return Object.entries(traitsObj).map(([key, value]) => 
+        `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`
+      );
+    }
+    return [];
+  };
+  
+  const traits = getTraitsList();
   
   return (
     <div 
@@ -48,7 +64,7 @@ export default function EagleDetailModal({ eagle, onClose }: EagleDetailModalPro
           <div className="mb-4 flex flex-col items-center">
             <div className="w-40 h-40 border-2 border-cyan-700/50 rounded mb-2 overflow-hidden">
               <img 
-                src="https://i.ibb.co/VVc9kvL/eagle-nft.jpg"
+                src={eagle.image || "https://i.ibb.co/VVc9kvL/eagle-nft.jpg"}
                 alt={eagle.id}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -58,7 +74,7 @@ export default function EagleDetailModal({ eagle, onClose }: EagleDetailModalPro
               />
             </div>
             <div className="text-center">
-              <h4 className="text-white text-lg">{eagle.id}</h4>
+              <h4 className="text-white text-lg">{eagle.name || eagle.id}</h4>
               <p className={`${getRarityColor(eagle.rarity)} text-sm`}>{eagle.rarity}</p>
             </div>
           </div>
@@ -67,9 +83,9 @@ export default function EagleDetailModal({ eagle, onClose }: EagleDetailModalPro
           <div className="space-y-4">
             <div className="bg-gray-900/50 border border-cyan-900/30 rounded p-3">
               <h5 className="text-cyan-400 mb-2 text-sm">TRAITS</h5>
-              {eagle.traits.length > 0 ? (
+              {traits.length > 0 ? (
                 <ul className="space-y-1">
-                  {eagle.traits.map((trait, index) => (
+                  {traits.map((trait, index) => (
                     <li key={index} className="text-gray-300 text-sm flex items-center">
                       <span className="w-2 h-2 bg-cyan-500 rounded-full mr-2"></span>
                       {trait}

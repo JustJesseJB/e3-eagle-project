@@ -6,7 +6,9 @@ import { useTerminal } from '@/contexts/TerminalContext';
 import { processCommandInput } from '@/lib/commands/commandProcessor';
 import { registerAllCommands } from '@/lib/commands';
 import { useWalletIntegration } from '@/contexts/WalletContext';
-import { setWalletIntegration } from '@/lib/commands/walletCommands';
+import { useAssets } from '@/contexts/AssetsContext';
+import { useAdmin } from '@/contexts/AdminContext';
+import { useContextConnector } from '@/lib/contextConnector';
 import TerminalHeader from './TerminalHeader';
 import TerminalOutput from './TerminalOutput';
 import TerminalInput from './TerminalInput';
@@ -15,6 +17,8 @@ import ChatPanel from './panels/ChatPanel';
 import MintPanel from './panels/MintPanel';
 import SecretPanel from './panels/SecretPanel';
 import EagleDetailModal from './modals/EagleDetailModal';
+import AdminPanel from '../admin/AdminPanel';
+import WalletSelectionModal from '../wallet/WalletSelectionModal';
 
 export default function Terminal() {
   const { 
@@ -28,12 +32,12 @@ export default function Terminal() {
   } = useTerminal();
   
   const walletIntegration = useWalletIntegration();
-  const { shortenedAddress } = walletIntegration;
+  const { shortenedAddress, showWalletModal, setShowWalletModal } = walletIntegration;
+  const { showAdminPanel } = useAdmin();
+  const { selectedEagle, setSelectedEagle } = useAssets();
   
-  // Set wallet integration for command processor
-  useEffect(() => {
-    setWalletIntegration(walletIntegration);
-  }, [walletIntegration]);
+  // Connect all contexts to command handlers
+  useContextConnector();
   
   const [isReady, setIsReady] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -43,17 +47,19 @@ export default function Terminal() {
   const [showMintPanel, setShowMintPanel] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [showSecretPanel, setShowSecretPanel] = useState(false);
-  
-  // Eagle modal state
-  const [selectedEagle, setSelectedEagle] = useState<{
-    id: string, 
-    rarity: string, 
-    traits: string[], 
-    power: number
-  } | null>(null);
+  const [showEagleModal, setShowEagleModal] = useState(false);
   
   // Random effects
   const [showHiddenMessage, setShowHiddenMessage] = useState(false);
+  
+  // Watch for selectedEagle changes to show modal
+  useEffect(() => {
+    if (selectedEagle) {
+      setShowEagleModal(true);
+    } else {
+      setShowEagleModal(false);
+    }
+  }, [selectedEagle]);
   
   // Register commands on component mount
   useEffect(() => {
@@ -96,6 +102,23 @@ export default function Terminal() {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [history]);
+  
+  // Handle Eagle inspection
+  const handleInspectEagle = (eagleId: string) => {
+    // This is now handled via AssetsContext in the assetsCommands.ts file
+    // The command will set the selectedEagle in the context
+  };
+  
+  // Handle clicks on terminal output items
+  const handleTerminalClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const eagleId = target.getAttribute('data-eagle-id');
+    if (eagleId) {
+      // This will be handled via AssetsContext
+      // Just pass the command to the processor
+      handleCommandSubmit(`/inspect ${eagleId}`);
+    }
+  };
   
   // Process command input
   const handleCommandSubmit = async (command: string) => {
@@ -189,6 +212,7 @@ export default function Terminal() {
         <div 
           className="flex-1 overflow-y-auto p-4"
           ref={outputRef}
+          onClick={handleTerminalClick}
         >
           <TerminalOutput history={history} />
         </div>
@@ -240,13 +264,21 @@ export default function Terminal() {
         walletAddress={shortenedAddress} 
       />
       
+      {/* Admin panel */}
+      {showAdminPanel && <AdminPanel />}
+      
+      {/* Wallet selection modal */}
+      <WalletSelectionModal 
+        isOpen={showWalletModal} 
+        onClose={() => setShowWalletModal(false)} 
+      />
+      
       {/* Eagle Detail Modal */}
-      {selectedEagle && (
-        <EagleDetailModal 
-          eagle={selectedEagle} 
-          onClose={() => setSelectedEagle(null)} 
-        />
-      )}
+      <EagleDetailModal 
+        eagle={selectedEagle} 
+        isOpen={showEagleModal} 
+        onClose={() => setSelectedEagle(null)} 
+      />
       
       {/* Scan line effect */}
       <div 

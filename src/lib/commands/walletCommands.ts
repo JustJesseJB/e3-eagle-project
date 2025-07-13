@@ -3,13 +3,20 @@
 import { TerminalEntry } from '@/contexts/TerminalContext';
 import { commandRegistry, CommandHandler } from './commandProcessor';
 import { useWalletIntegration } from '@/contexts/WalletContext';
+import { useAdmin } from '@/contexts/AdminContext';
 
 // Helper function to get wallet integration outside of React components
 let walletIntegration: ReturnType<typeof useWalletIntegration> | null = null;
+let adminContext: ReturnType<typeof useAdmin> | null = null;
 
 export function setWalletIntegration(integration: ReturnType<typeof useWalletIntegration>) {
   walletIntegration = integration;
   console.log("Wallet integration set in commands", walletIntegration);
+}
+
+export function setAdminContext(admin: ReturnType<typeof useAdmin>) {
+  adminContext = admin;
+  console.log("Admin context set in wallet commands");
 }
 
 // Connect command - handles wallet connection
@@ -19,28 +26,92 @@ export const handleConnectCommand: CommandHandler = async (): Promise<TerminalEn
   // Check if we have access to wallet integration
   if (!walletIntegration) {
     return [
-      { type: 'error' as const, text: 'Wallet integration not available' },
-      { type: 'system' as const, text: 'Please try again or refresh the page' }
+      { type: 'error', text: 'Wallet integration not available' },
+      { type: 'system', text: 'Please try again or refresh the page' }
     ];
   }
 
-  try {
-    // Use the simulate wallet connection directly to avoid errors
+  // Determine if we should show the wallet selection modal
+  if (adminContext && 
+      adminContext.config.enableRealWalletOption && 
+      adminContext.config.enableSimulatedWallet) {
+    // Show the modal for selecting wallet type
+    console.log("Opening wallet selection modal");
+    walletIntegration.setShowWalletModal(true);
+    
+    return [
+      { type: 'system', text: 'Please select a wallet connection method...' }
+    ];
+  }
+  
+  // If only simulated wallet is enabled, use it automatically
+  if (adminContext && 
+      !adminContext.config.enableRealWalletOption && 
+      adminContext.config.enableSimulatedWallet) {
+    console.log("Using simulated wallet automatically");
     walletIntegration.simulateWalletConnection();
     
-    // Return success message
     return [
-      { type: 'system' as const, text: 'Connecting to wallet...' },
-      { type: 'success' as const, text: `Connected to ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
-      { type: 'system' as const, text: 'Scanning for Eagle identifiers...' },
-      { type: 'warning' as const, text: 'Access level: 1 - INITIATE' },
-      { type: 'hidden' as const, text: 'Use /classified to access restricted data' }
+      { type: 'system', text: 'Connecting to simulated wallet...' },
+      { type: 'success', text: `Connected to ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
+      { type: 'system', text: 'Scanning for Eagle identifiers...' },
+      { type: 'warning', text: 'Access level: 1 - INITIATE' },
+      { type: 'hidden', text: 'Use /classified to access restricted data' }
     ];
+  }
+  
+  // If only real wallet is enabled, try to connect to it
+  if (adminContext && 
+      adminContext.config.enableRealWalletOption && 
+      !adminContext.config.enableSimulatedWallet) {
+    try {
+      console.log("Attempting to connect to real wallet");
+      await walletIntegration.connectWallet();
+      
+      // Return success message
+      return [
+        { type: 'system', text: 'Connecting to wallet...' },
+        { type: 'success', text: `Connected to ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
+        { type: 'system', text: 'Scanning for Eagle identifiers...' },
+        { type: 'warning', text: 'Access level: 1 - INITIATE' },
+        { type: 'hidden', text: 'Use /classified to access restricted data' }
+      ];
+    } catch (error) {
+      console.error('Error connecting to wallet:', error);
+      return [
+        { type: 'error', text: 'Failed to connect to wallet' },
+        { type: 'system', text: 'Please make sure you have a Solana wallet extension installed' }
+      ];
+    }
+  }
+
+  // Fallback: If no admin context or specific config, show the modal if available
+  try {
+    console.log("No specific configuration, checking if modal is available");
+    if (walletIntegration.setShowWalletModal) {
+      walletIntegration.setShowWalletModal(true);
+      return [
+        { type: 'system', text: 'Please select a wallet connection method...' }
+      ];
+    } else {
+      // If no modal function, simulate wallet connection
+      console.log("No modal function available, using simulation");
+      walletIntegration.simulateWalletConnection();
+      
+      // Return success message
+      return [
+        { type: 'system', text: 'Connecting to simulated wallet...' },
+        { type: 'success', text: `Connected to ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
+        { type: 'system', text: 'Scanning for Eagle identifiers...' },
+        { type: 'warning', text: 'Access level: 1 - INITIATE' },
+        { type: 'hidden', text: 'Use /classified to access restricted data' }
+      ];
+    }
   } catch (error) {
     console.error('Error in connect command:', error);
     return [
-      { type: 'error' as const, text: 'Failed to connect wallet' },
-      { type: 'system' as const, text: 'Try using the "SIMULATE WALLET CONNECTION" button on the mint panel' }
+      { type: 'error', text: 'Failed to connect wallet' },
+      { type: 'system', text: 'Try using the "SIMULATE WALLET CONNECTION" button on the mint panel' }
     ];
   }
 };
@@ -50,16 +121,16 @@ export const handleDisconnectCommand: CommandHandler = async (): Promise<Termina
   // Check if we have access to wallet integration
   if (!walletIntegration) {
     return [
-      { type: 'error' as const, text: 'Wallet integration not available' },
-      { type: 'system' as const, text: 'Please try again or refresh the page' }
+      { type: 'error', text: 'Wallet integration not available' },
+      { type: 'system', text: 'Please try again or refresh the page' }
     ];
   }
   
   // Check if wallet is connected
   if (!walletIntegration.connected) {
     return [
-      { type: 'error' as const, text: 'No wallet connected' },
-      { type: 'system' as const, text: 'Use /connect to connect a wallet first' }
+      { type: 'error', text: 'No wallet connected' },
+      { type: 'system', text: 'Use /connect to connect a wallet first' }
     ];
   }
   
@@ -67,9 +138,9 @@ export const handleDisconnectCommand: CommandHandler = async (): Promise<Termina
   await walletIntegration.disconnectWallet();
   
   return [
-    { type: 'system' as const, text: 'Disconnecting wallet...' },
-    { type: 'success' as const, text: 'Wallet disconnected successfully.' },
-    { type: 'warning' as const, text: 'Access level reverted to GUEST' }
+    { type: 'system', text: 'Disconnecting wallet...' },
+    { type: 'success', text: 'Wallet disconnected successfully.' },
+    { type: 'warning', text: 'Access level reverted to GUEST' }
   ];
 };
 
@@ -78,25 +149,25 @@ export const handleWalletInfoCommand: CommandHandler = async (): Promise<Termina
   // Check if we have access to wallet integration
   if (!walletIntegration) {
     return [
-      { type: 'error' as const, text: 'Wallet integration not available' },
-      { type: 'system' as const, text: 'Please try again or refresh the page' }
+      { type: 'error', text: 'Wallet integration not available' },
+      { type: 'system', text: 'Please try again or refresh the page' }
     ];
   }
   
   // Check if wallet is connected
   if (!walletIntegration.connected) {
     return [
-      { type: 'error' as const, text: 'No wallet connected' },
-      { type: 'system' as const, text: 'Use /connect to connect a wallet' }
+      { type: 'error', text: 'No wallet connected' },
+      { type: 'system', text: 'Use /connect to connect a wallet' }
     ];
   }
   
   return [
-    { type: 'system' as const, text: 'WALLET STATUS:' },
-    { type: 'data' as const, text: 'Connection: Active' },
-    { type: 'data' as const, text: `Address: ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
-    { type: 'data' as const, text: 'Network: Devnet' },
-    { type: 'data' as const, text: 'Balance: 5.24 SOL' },
+    { type: 'system', text: 'WALLET STATUS:' },
+    { type: 'data', text: 'Connection: Active' },
+    { type: 'data', text: `Address: ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
+    { type: 'data', text: 'Network: ' + (adminContext ? (adminContext.config.networkType === 'mainnet-beta' ? 'Mainnet' : 'Devnet') : 'Devnet') },
+    { type: 'data', text: 'Balance: 5.24 SOL' },
   ];
 };
 

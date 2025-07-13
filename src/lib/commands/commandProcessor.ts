@@ -72,12 +72,14 @@ export async function processCommandInput(input: string): Promise<TerminalEntry[
   const args = parts.slice(1);
   
   // Normalize command (add / prefix if missing)
+  // These are special commands that we want to ensure work regardless of prefix
+  const specialCommands = ['mint', 'chat', 'classified', 'clear', 'help', 'connect', 'assets'];
+  
   if (!command.startsWith('/')) {
-    // Check if the command exists without / first
-    if (commandRegistry.exists(command)) {
-      // If it exists without /, use it as is
+    // For special commands, check with and without /
+    if (specialCommands.includes(command.toLowerCase())) {
+      command = `/${command}`;
     } else if (commandRegistry.exists(`/${command}`)) {
-      // Otherwise, add / prefix
       command = `/${command}`;
     }
   }

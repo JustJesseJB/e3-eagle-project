@@ -1,7 +1,29 @@
+// src/lib/commands/assetsCommands.ts
+
 import { TerminalEntry } from '@/contexts/TerminalContext';
 import { commandRegistry, CommandHandler } from './commandProcessor';
+import { useAssets, Eagle } from '@/contexts/AssetsContext';
 
-// Demo NFT data - in a real implementation this would come from the blockchain
+// Helper function to get assets context outside of React components
+let assetsContext: ReturnType<typeof useAssets> | null = null;
+
+export function setAssetsContext(context: ReturnType<typeof useAssets>) {
+  assetsContext = context;
+  console.log("Assets context set in commands", assetsContext);
+}
+
+// Function to get rarity color for display
+function getRarityColor(rarity: string): string {
+  switch(rarity) {
+    case 'Common': return 'text-gray-400';
+    case 'Rare': return 'text-blue-400';
+    case 'Epic': return 'text-purple-400';
+    case 'Legendary': return 'text-yellow-400';
+    default: return 'text-white';
+  }
+}
+
+// Demo NFT data - this will be used only if assets context is not available
 const demoNFTs = [
   {
     id: 'E3G-001',
@@ -15,7 +37,8 @@ const demoNFTs = [
       background: 'Nebula',
       accessories: 'Quantum Shield'
     },
-    mintDate: new Date('2025-07-01').getTime()
+    mintDate: new Date('2025-07-01').getTime(),
+    power: 95
   },
   {
     id: 'E3G-042',
@@ -29,7 +52,8 @@ const demoNFTs = [
       background: 'Eclipse',
       accessories: 'Stealth Visor'
     },
-    mintDate: new Date('2025-07-02').getTime()
+    mintDate: new Date('2025-07-02').getTime(),
+    power: 78
   },
   {
     id: 'E3G-103',
@@ -43,22 +67,12 @@ const demoNFTs = [
       background: 'Thunderstorm',
       accessories: 'Voltage Gauntlets'
     },
-    mintDate: new Date('2025-07-03').getTime()
+    mintDate: new Date('2025-07-03').getTime(),
+    power: 62
   }
 ];
 
-// Function to get rarity color for display
-function getRarityColor(rarity: string): string {
-  switch(rarity) {
-    case 'Common': return 'text-gray-400';
-    case 'Rare': return 'text-blue-400';
-    case 'Epic': return 'text-purple-400';
-    case 'Legendary': return 'text-yellow-400';
-    default: return 'text-white';
-  }
-}
-
-// Assets command - shows the user's NFT assets
+// Assets command - shows user's Eagle NFTs
 export const handleAssetsCommand: CommandHandler = async (): Promise<TerminalEntry[]> => {
   const response: TerminalEntry[] = [
     { type: 'system', text: 'Scanning wallet for Eagle NFTs...' },
@@ -67,7 +81,10 @@ export const handleAssetsCommand: CommandHandler = async (): Promise<TerminalEnt
   // Simulate loading time
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  if (demoNFTs.length === 0) {
+  // Use Eagles from context if available, otherwise fall back to demo data
+  const eagles = assetsContext?.eagles || [];
+  
+  if (eagles.length === 0) {
     response.push(
       { type: 'warning', text: 'No Eagles found in connected wallet.' },
       { type: 'system', text: 'Use "/mint" to acquire your first Eagle NFT.' }
@@ -76,15 +93,19 @@ export const handleAssetsCommand: CommandHandler = async (): Promise<TerminalEnt
   }
   
   response.push(
-    { type: 'success', text: `Found ${demoNFTs.length} Eagles in your collection:` }
+    { type: 'success', text: `Found ${eagles.length} Eagles in your collection:` }
   );
   
-  // Add each NFT to the response
-  demoNFTs.forEach(nft => {
+  // Add each eagle to the response
+  eagles.forEach(eagle => {
+    const mintDate = typeof eagle.mintDate === 'string' 
+      ? eagle.mintDate 
+      : new Date(eagle.mintDate).toLocaleDateString();
+      
     response.push({
       type: 'data',
-      text: `${nft.id}: ${nft.name} (${nft.rarity}) - Minted: ${new Date(nft.mintDate).toLocaleDateString()}`,
-      eagleId: nft.id // This will be used for interaction in the UI
+      text: `${eagle.id}: ${eagle.name} (${eagle.rarity}) - Minted: ${mintDate}`,
+      eagleId: eagle.id // This will be used for interaction in the UI
     });
   });
   
@@ -96,7 +117,7 @@ export const handleAssetsCommand: CommandHandler = async (): Promise<TerminalEnt
   return response;
 };
 
-// Inspect command - shows detailed information about a specific NFT
+// Inspect command - shows details for a specific Eagle
 export const handleInspectCommand: CommandHandler = async (args: string[]): Promise<TerminalEntry[]> => {
   if (args.length === 0) {
     return [
@@ -107,7 +128,21 @@ export const handleInspectCommand: CommandHandler = async (args: string[]): Prom
   }
   
   const eagleId = args[0].toUpperCase();
-  const eagle = demoNFTs.find(nft => nft.id === eagleId);
+  
+  // Try to get eagle from context, fall back to demo data if context not available
+  let eagle: Eagle | undefined;
+  
+  if (assetsContext) {
+    eagle = assetsContext.eagles.find(e => e.id === eagleId);
+    
+    // If found, set as selected eagle for modal display
+    if (eagle) {
+      assetsContext.setSelectedEagle(eagle);
+    }
+  } else {
+    // Fall back to demo data if context not available
+    eagle = demoNFTs.find(nft => nft.id === eagleId) as any;
+  }
   
   if (!eagle) {
     return [
@@ -119,27 +154,48 @@ export const handleInspectCommand: CommandHandler = async (args: string[]): Prom
   // Simulate loading time
   await new Promise(resolve => setTimeout(resolve, 300));
   
-  return [
+  // Create response with basic eagle info
+  const response: TerminalEntry[] = [
     { type: 'system', text: `--- EAGLE INSPECTION: ${eagle.id} ---` },
     { type: 'data', text: `Name: ${eagle.name}` },
-    { type: 'data', text: `Rarity: ${eagle.rarity}` },
-    { type: 'data', text: `Mint Date: ${new Date(eagle.mintDate).toLocaleString()}` },
-    { type: 'data', text: '---' },
-    { type: 'data', text: 'TRAITS:' },
-    { type: 'data', text: `• Plumage: ${eagle.traits.plumage}` },
-    { type: 'data', text: `• Eyes: ${eagle.traits.eyes}` },
-    { type: 'data', text: `• Beak: ${eagle.traits.beak}` },
-    { type: 'data', text: `• Background: ${eagle.traits.background}` },
-    { type: 'data', text: `• Accessories: ${eagle.traits.accessories}` },
-    { type: 'data', text: '---' },
-    { type: 'system', text: 'ACTIONS:' },
-    { type: 'command', text: `/showcase ${eagle.id} - Showcase this Eagle in community chat` },
-    { type: 'command', text: `/marketplace view ${eagle.id} - View on marketplace` }
+    { type: 'data', text: `Rarity: ${eagle.rarity}` }
   ];
+  
+  // Handle mintDate based on format
+  if (typeof eagle.mintDate === 'string') {
+    response.push({ type: 'data', text: `Mint Date: ${eagle.mintDate}` });
+  } else if (typeof eagle.mintDate === 'number') {
+    response.push({ type: 'data', text: `Mint Date: ${new Date(eagle.mintDate).toLocaleString()}` });
+  }
+  
+  response.push({ type: 'data', text: '---' });
+  response.push({ type: 'data', text: 'TRAITS:' });
+  
+  // Handle traits based on format (object or array)
+  if (Array.isArray(eagle.traits)) {
+    // If traits is an array (new format)
+    eagle.traits.forEach(trait => {
+      response.push({ type: 'data', text: `• ${trait}` });
+    });
+  } else if (typeof eagle.traits === 'object' && eagle.traits !== null) {
+    // If traits is an object (original format)
+    const traits = eagle.traits as any;
+    Object.keys(traits).forEach(key => {
+      response.push({ type: 'data', text: `• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${traits[key]}` });
+    });
+  }
+  
+  response.push({ type: 'data', text: '---' });
+  response.push({ type: 'system', text: 'ACTIONS:' });
+  response.push({ type: 'command', text: `/showcase ${eagle.id} - Showcase this Eagle in community chat` });
+  response.push({ type: 'command', text: `/marketplace view ${eagle.id} - View on marketplace` });
+  
+  return response;
 };
 
 // Register assets commands
 export function registerAssetsCommands(): void {
   commandRegistry.register('/assets', handleAssetsCommand);
   commandRegistry.register('/inspect', handleInspectCommand);
+  console.log("Assets commands registered");
 }

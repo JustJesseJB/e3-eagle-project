@@ -1,3 +1,5 @@
+// src/contexts/TerminalContext.tsx
+
 'use client';
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { walletEvents } from './WalletContext';
@@ -57,77 +59,73 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
           text: 'Wallet connected successfully.',
           timestamp: Date.now()
         }]);
+        
+        // Set access level to 1 when connected
+        setAccessLevel(1);
       } else if (history.length > 0) { // Only add disconnect message if there's already history
         setHistory(prev => [...prev, {
           type: 'system',
           text: 'Wallet disconnected.',
           timestamp: Date.now()
         }]);
+        
+        // Reset access level when disconnected
+        setAccessLevel(0);
       }
     });
     
-    // Cleanup function to prevent memory leaks
-    return unsubscribe;
-  }, [history]);
+    return () => unsubscribe();
+  }, [history.length]);
 
   // Add a single entry to the terminal
   const addEntry = useCallback((entry: TerminalEntry) => {
-    setHistory(prev => [...prev, { ...entry, timestamp: entry.timestamp || Date.now() }]);
-  }, []);
-
-  // Add multiple entries at once
-  const addEntries = useCallback((entries: TerminalEntry[]) => {
-    if (entries.length === 0) return; // Skip if empty array
-    
-    const entriesWithTimestamp = entries.map(entry => ({
+    setHistory(prev => [...prev, {
       ...entry,
       timestamp: entry.timestamp || Date.now()
-    }));
-    
-    setHistory(prev => [...prev, ...entriesWithTimestamp]);
+    }]);
   }, []);
 
-  // Clear the terminal
+  // Add multiple entries to the terminal
+  const addEntries = useCallback((entries: TerminalEntry[]) => {
+    setHistory(prev => [
+      ...prev, 
+      ...entries.map(entry => ({
+        ...entry,
+        timestamp: entry.timestamp || Date.now()
+      }))
+    ]);
+  }, []);
+
+  // Clear the terminal history
   const clearTerminal = useCallback(() => {
     setHistory([]);
   }, []);
 
-  // Trigger glitch effect
+  // Trigger a glitch effect
   const triggerGlitch = useCallback(() => {
     setGlitchEffect(true);
-    setTimeout(() => setGlitchEffect(false), 1000);
+    setTimeout(() => setGlitchEffect(false), 1500);
   }, []);
 
-  // Update access level based on connection status
-  useEffect(() => {
-    if (connected && accessLevel === 0) {
-      setAccessLevel(1); // Basic user access when connected
-    } else if (!connected && accessLevel > 0) {
-      setAccessLevel(0); // Reset to guest when disconnected
-    }
-  }, [connected, accessLevel]);
-
-  const contextValue: TerminalContextType = {
-    history,
-    addEntry,
-    addEntries,
-    clearTerminal,
-    connected,
-    setConnected,
-    accessLevel,
-    setAccessLevel,
-    glitchEffect,
-    triggerGlitch
-  };
-
   return (
-    <TerminalContext.Provider value={contextValue}>
+    <TerminalContext.Provider value={{
+      history,
+      addEntry,
+      addEntries,
+      clearTerminal,
+      connected,
+      setConnected,
+      accessLevel,
+      setAccessLevel,
+      glitchEffect,
+      triggerGlitch
+    }}>
       {children}
     </TerminalContext.Provider>
   );
 }
 
-// Custom hook to use the terminal context
+// Hook for easy context access
 export function useTerminal() {
   const context = useContext(TerminalContext);
   if (context === undefined) {

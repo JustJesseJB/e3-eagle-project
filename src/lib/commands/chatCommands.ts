@@ -1,107 +1,132 @@
+// src/lib/commands/chatCommands.ts
+
 import { TerminalEntry } from '@/contexts/TerminalContext';
 import { commandRegistry, CommandHandler } from './commandProcessor';
-import { shortenAddress, generatePlaceholderAddress } from '@/utils/addresses';
+import { useWalletIntegration } from '@/contexts/WalletContext';
+import { useAssets } from '@/contexts/AssetsContext';
+import { shortenAddress } from '@/utils/addresses';
 
-// Simulate some chat users for demonstration
-const demoUsers = [
+// Helper function to get wallet and assets context outside of React components
+let walletIntegration: ReturnType<typeof useWalletIntegration> | null = null;
+let assetsContext: ReturnType<typeof useAssets> | null = null;
+
+export function setChatContexts(
+  wallet: ReturnType<typeof useWalletIntegration>,
+  assets: ReturnType<typeof useAssets>
+): void {
+  walletIntegration = wallet;
+  assetsContext = assets;
+  console.log("Chat contexts set in commands");
+}
+
+// Demo users for the chat feature
+const chatUsers = [
   {
-    walletId: '8xHy92Pj1CRMEsvEFKFqPPoXrL9UvG7HNbYzZMKGEsS9',
-    displayName: 'Eagle_Commander',
-    verified: true
+    name: 'EagleOne',
+    color: 'text-purple-400'
   },
   {
-    walletId: '6GzrJFQCREFvXuZHrx3RFHYDNqRzXcFgcBx5rKqDrwJP',
-    displayName: 'crypto_wizard',
-    verified: true
+    name: 'Talon42',
+    color: 'text-green-400'
   },
   {
-    walletId: '4vj7HqWcJxzf2LfUPBqGvPDcyPNNe1nGJJTXCPevM1AH',
-    displayName: 'Sol_Surfer',
-    verified: true
+    name: 'WingCommander',
+    color: 'text-yellow-400'
+  },
+  {
+    name: 'NestWatcher',
+    color: 'text-cyan-400'
+  },
+  {
+    name: 'DigitalEagle',
+    color: 'text-red-400'
   }
 ];
 
-// Demo chat messages
-const demoMessages = [
-  {
-    walletId: '8xHy92Pj1CRMEsvEFKFqPPoXrL9UvG7HNbYzZMKGEsS9',
-    message: 'Welcome to the Eagle Terminal chat. Authenticity verified by wallet signature.',
-    timestamp: Date.now() - 3600000
-  },
-  {
-    walletId: '6GzrJFQCREFvXuZHrx3RFHYDNqRzXcFgcBx5rKqDrwJP',
-    message: 'Just minted my first Eagle! #E3-Legion',
-    timestamp: Date.now() - 1800000
-  },
-  {
-    walletId: '4vj7HqWcJxzf2LfUPBqGvPDcyPNNe1nGJJTXCPevM1AH',
-    message: 'Anyone else unlock the hidden command?',
-    timestamp: Date.now() - 600000
-  }
-];
-
-// Chat command - opens the chat interface
+// Chat command - opens the chat panel
 export const handleChatCommand: CommandHandler = async (): Promise<TerminalEntry[]> => {
-  const response: TerminalEntry[] = [
-    { type: 'system', text: 'Connecting to E3 community channel...' },
-    { type: 'success', text: 'Connected to E3 community channel' },
-    { type: 'system', text: '--- EAGLE COMMUNITY CHAT ---' },
+  return [
+    { type: 'system', text: 'Opening community chat panel...' }
   ];
-  
-  // Add the demo messages to the response
-  demoMessages.forEach(msg => {
-    const user = demoUsers.find(u => u.walletId === msg.walletId);
-    const displayName = user?.displayName || shortenAddress(msg.walletId);
-    const verified = user?.verified ? '✓' : '';
-    
-    response.push({
-      type: 'data',
-      text: `[${new Date(msg.timestamp).toLocaleTimeString()}] ${displayName}${verified}: ${msg.message}`
-    });
-  });
-  
-  response.push(
-    { type: 'system', text: '---' },
-    { type: 'system', text: 'Type "/chat-send [message]" to send a message' },
-    { type: 'system', text: 'Type "/chat-exit" to leave the chat' }
-  );
-  
-  return response;
 };
 
-// Chat send command - sends a message to the chat
-export const handleChatSendCommand: CommandHandler = async (args: string[]): Promise<TerminalEntry[]> => {
-  const message = args.join(' ');
-  
-  if (!message) {
-    return [{ type: 'error', text: 'Please provide a message to send' }];
+// Showcase command - displays an Eagle in the chat
+export const handleShowcaseCommand: CommandHandler = async (args: string[]): Promise<TerminalEntry[]> => {
+  if (!walletIntegration || !assetsContext) {
+    return [
+      { type: 'error', text: 'Context not available for showcase command' },
+      { type: 'system', text: 'Please try again or refresh the page' }
+    ];
   }
-  
-  // In a real implementation, this would send the message to a server
-  // and include the wallet signature for verification
-  return [
-    { 
-      type: 'data', 
-      text: `[${new Date().toLocaleTimeString()}] YOU: ${message}` 
-    },
-    { 
-      type: 'system', 
-      text: 'Message sent to community channel' 
-    }
-  ];
-};
 
-// Chat exit command - closes the chat interface
-export const handleChatExitCommand: CommandHandler = async (): Promise<TerminalEntry[]> => {
+  // Check if wallet is connected
+  if (!walletIntegration.connected) {
+    return [
+      { type: 'error', text: 'Wallet not connected' },
+      { type: 'system', text: 'Please connect your wallet first with /connect' }
+    ];
+  }
+
+  // Check if eagle ID was provided
+  if (!args.length) {
+    return [
+      { type: 'error', text: 'No Eagle ID provided' },
+      { type: 'system', text: 'Usage: /showcase [eagle-id]' }
+    ];
+  }
+
+  const eagleId = args[0].toUpperCase();
+  
+  // Find the eagle in the user's collection
+  const eagle = assetsContext.eagles.find(e => e.id === eagleId);
+  
+  if (!eagle) {
+    return [
+      { type: 'error', text: `Eagle with ID "${eagleId}" not found in your collection.` },
+      { type: 'system', text: 'Use "/assets" to view your Eagles.' }
+    ];
+  }
+
+  // Get a random response from a community member
+  const randomUser = chatUsers[Math.floor(Math.random() * chatUsers.length)];
+  const responses = [
+    "wow, that's an amazing Eagle!",
+    "nice find! I've been looking for one like that.",
+    "the rarity on that one is insane!",
+    "those traits are super rare, congrats!",
+    "I'll give you 50 SOL for that right now!",
+    "that's one of the best Eagles I've seen!",
+    "the coloring on that one is perfect.",
+    "holy moly, when did you mint that?",
+    "that's got to be worth a fortune!"
+  ];
+  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+
+  // Format the eagle's traits for display
+  let traitsText = "";
+  if (Array.isArray(eagle.traits)) {
+    traitsText = eagle.traits.join(", ");
+  } else if (typeof eagle.traits === 'object' && eagle.traits !== null) {
+    const traits = eagle.traits as any;
+    traitsText = Object.entries(traits)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+  }
+
   return [
-    { type: 'system', text: 'Disconnecting from E3 community channel...' },
-    { type: 'success', text: 'Disconnected from community channel' }
+    { type: 'system', text: `Showcasing ${eagle.id} in community chat...` },
+    { type: 'success', text: `You shared ${eagle.id} (${eagle.rarity})` },
+    { type: 'system', text: `--- COMMUNITY CHAT ---` },
+    { type: 'data', text: `You: Check out my ${eagle.rarity} Eagle - ${eagle.id}!` },
+    { type: 'data', text: `You: It has the following traits: ${traitsText}` },
+    { type: 'data', text: `${randomUser.name}: ${randomResponse}` },
+    { type: 'data', text: `System: Eagle ${eagle.id} has been added to the showcase channel.` }
   ];
 };
 
 // Register chat commands
 export function registerChatCommands(): void {
   commandRegistry.register('/chat', handleChatCommand);
-  commandRegistry.register('/chat-send', handleChatSendCommand);
-  commandRegistry.register('/chat-exit', handleChatExitCommand);
+  commandRegistry.register('/showcase', handleShowcaseCommand);
+  console.log("Chat commands registered");
 }
