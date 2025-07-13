@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TerminalProvider } from '@/contexts/TerminalContext';
 import { WalletContextProvider } from '@/contexts/WalletContext';
 import Terminal from '@/components/terminal/Terminal';
@@ -8,6 +8,7 @@ import '@/styles/terminal.css';
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
   
+  // This ensures hydration mismatch doesn't occur
   useEffect(() => {
     setIsClient(true);
   }, []);

@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, RefObject } from 'react';
 
 interface TerminalInputProps {
   onSubmit: (input: string) => void;
+  inputRef?: RefObject<HTMLInputElement>;
 }
 
-export default function TerminalInput({ onSubmit }: TerminalInputProps) {
+export default function TerminalInput({ onSubmit, inputRef }: TerminalInputProps) {
   const [input, setInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -55,10 +56,10 @@ export default function TerminalInput({ onSubmit }: TerminalInputProps) {
       e.preventDefault();
       
       // Basic command auto-completion
-      // This could be enhanced with context-aware completion
       const basicCommands = [
         '/help', '/clear', '/connect', '/mint', 
-        '/assets', '/chat', '/socials', '/marketplace'
+        '/assets', '/chat', '/socials', '/marketplace',
+        '/scan', '/inspect', '/classified'
       ];
       
       if (input.startsWith('/')) {
@@ -73,32 +74,19 @@ export default function TerminalInput({ onSubmit }: TerminalInputProps) {
     }
   };
   
-  // Auto-focus input on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const inputElement = document.getElementById('terminal-input');
-      if (inputElement) {
-        inputElement.focus();
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
   return (
-    <form onSubmit={handleSubmit} className="border-t border-green-800/50 p-2">
+    <form onSubmit={handleSubmit} className="border-t border-green-800/50 p-2 backdrop-blur-sm">
       <div className="flex items-center">
         <span className="text-green-500 mr-2">&gt;</span>
         <input
-          id="terminal-input"
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           className="flex-1 bg-transparent text-white focus:outline-none"
           placeholder="Enter command..."
-          autoComplete="off"
-          spellCheck="false"
+          autoFocus
         />
       </div>
     </form>

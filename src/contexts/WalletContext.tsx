@@ -14,6 +14,7 @@ import { BraveWalletAdapter } from '@solana/wallet-adapter-brave';
 import { CoinbaseWalletAdapter } from '@solana/wallet-adapter-coinbase';
 import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
 import { clusterApiUrl } from '@solana/web3.js';
+import { shortenAddress } from '@/utils/addresses';
 
 // Create internal wallet context for our app-specific wallet functionality
 const InternalWalletContext = createContext<{
@@ -22,12 +23,14 @@ const InternalWalletContext = createContext<{
   connected: boolean; 
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
+  simulateWalletConnection: () => void;
 }>({
   shortenedAddress: null,
   isConnecting: false,
   connected: false,
   connectWallet: async () => {},
   disconnectWallet: async () => {},
+  simulateWalletConnection: () => {},
 });
 
 export interface WalletEvents {
@@ -58,11 +61,25 @@ export const walletEvents: WalletEvents = {
 function WalletInitializer({ children }: { children: ReactNode }) {
   const { publicKey, connect, disconnect, connecting, connected } = useWallet();
   const { connection } = useConnection();
+  const [isSimulatedWallet, setIsSimulatedWallet] = useState(false);
+  const [simulatedAddress, setSimulatedAddress] = useState('8xH5f...q3B7');
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // Update connection status based on real or simulated wallet
+  useEffect(() => {
+    const newConnectedStatus = connected || isSimulatedWallet;
+    setIsConnected(newConnectedStatus);
+    walletEvents.notifyConnectionChange(newConnectedStatus);
+  }, [connected, isSimulatedWallet]);
   
   // Set up shortened address display
-  const shortenedAddress = publicKey 
-    ? `${publicKey.toString().substring(0, 4)}...${publicKey.toString().substring(publicKey.toString().length - 4)}`
+  const realShortenedAddress = publicKey 
+    ? shortenAddress(publicKey.toString())
     : null;
+  
+  const displayAddress = isSimulatedWallet 
+    ? simulatedAddress 
+    : realShortenedAddress;
   
   // Connect wallet function
   const connectWallet = async () => {
@@ -77,25 +94,30 @@ function WalletInitializer({ children }: { children: ReactNode }) {
   // Disconnect wallet function
   const disconnectWallet = async () => {
     try {
-      await disconnect();
+      if (isSimulatedWallet) {
+        setIsSimulatedWallet(false);
+      } else {
+        await disconnect();
+      }
     } catch (error) {
       console.error('Error disconnecting wallet:', error);
     }
   };
   
-  // Notify connection changes via event system
-  useEffect(() => {
-    walletEvents.notifyConnectionChange(connected);
-  }, [connected]);
+  // Simulate wallet connection (for testing)
+  const simulateWalletConnection = () => {
+    setIsSimulatedWallet(true);
+  };
   
   return (
     <InternalWalletContext.Provider
       value={{
-        shortenedAddress,
+        shortenedAddress: displayAddress,
         isConnecting: connecting,
-        connected,
+        connected: isConnected,
         connectWallet,
-        disconnectWallet
+        disconnectWallet,
+        simulateWalletConnection
       }}
     >
       {children}

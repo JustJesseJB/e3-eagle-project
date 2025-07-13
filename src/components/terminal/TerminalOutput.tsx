@@ -20,27 +20,42 @@ const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>(
           minHeight: '200px'
         }}
       >
-        {history.map((entry, i) => (
-          <div 
-            key={i} 
-            className={`
-              ${entry.type === 'input' ? 'text-white' : ''}
-              ${entry.type === 'system' ? 'text-green-400' : ''}
-              ${entry.type === 'error' ? 'text-red-400' : ''}
-              ${entry.type === 'warning' ? 'text-yellow-400' : ''}
-              ${entry.type === 'success' ? 'text-cyan-400' : ''}
-              ${entry.type === 'command' ? 'text-purple-400' : ''}
-              ${entry.type === 'data' ? 'text-gray-400' : ''}
-              ${entry.type === 'glitch' ? 'text-red-500 glitch-text' : ''}
-              ${entry.type === 'hidden' ? 'text-gray-900 hover:text-gray-500 cursor-help' : ''}
-              ${entry.eagleId ? 'cursor-pointer hover:bg-green-900/20' : ''}
-              mb-1
-            `}
-            data-eagle-id={entry.eagleId}
-          >
-            {entry.text}
-          </div>
-        ))}
+        {/* Initial boot sequence */}
+        <div className="text-gray-500 mb-2">
+          <p>Initializing E3 Terminal...</p>
+          <p>BIOS v1.0.3 loaded</p>
+          <p>Checking system integrity... OK</p>
+          <p>Loading security protocols... OK</p>
+          <p>Establishing blockchain connection... OK</p>
+          <p>Initializing Solana interface... OK</p>
+          <p className="text-yellow-400 mt-2">E3 TERMINAL READY</p>
+          <p>Type <span className="text-white">/help</span> for available commands</p>
+        </div>
+        
+        {/* Terminal history */}
+        <div>
+          {history.map((entry, i) => (
+            <div 
+              key={i} 
+              className={`
+                ${entry.type === 'input' ? 'text-white' : ''}
+                ${entry.type === 'system' ? 'text-green-400' : ''}
+                ${entry.type === 'error' ? 'text-red-400' : ''}
+                ${entry.type === 'warning' ? 'text-yellow-400' : ''}
+                ${entry.type === 'success' ? 'text-cyan-400' : ''}
+                ${entry.type === 'command' ? 'text-purple-400' : ''}
+                ${entry.type === 'data' ? 'text-gray-400' : ''}
+                ${entry.type === 'glitch' ? 'text-red-500 glitch-text' : ''}
+                ${entry.type === 'hidden' ? 'text-gray-900 hover:text-gray-500 cursor-help' : ''}
+                ${entry.eagleId ? 'cursor-pointer hover:bg-green-900/20' : ''}
+                mb-1
+              `}
+              data-eagle-id={entry.eagleId}
+            >
+              {entry.text}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
