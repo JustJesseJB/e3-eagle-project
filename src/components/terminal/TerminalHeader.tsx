@@ -1,3 +1,5 @@
+// src/components/terminal/TerminalHeader.tsx
+
 'use client';
 
 interface TerminalHeaderProps {

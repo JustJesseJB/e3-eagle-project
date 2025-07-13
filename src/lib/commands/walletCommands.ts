@@ -1,3 +1,5 @@
+// src/lib/commands/walletCommands.ts
+
 import { TerminalEntry } from '@/contexts/TerminalContext';
 import { commandRegistry, CommandHandler } from './commandProcessor';
 import { useWalletIntegration } from '@/contexts/WalletContext';
@@ -18,17 +20,26 @@ export const handleConnectCommand: CommandHandler = async (): Promise<TerminalEn
       { type: 'system', text: 'Please try again or refresh the page' }
     ];
   }
-  
-  // Simulate wallet connection for now
-  walletIntegration.simulateWalletConnection();
-  
-  return [
-    { type: 'system', text: 'Connecting to wallet...' },
-    { type: 'success', text: 'Connected to 8xH5f...q3B7' },
-    { type: 'system', text: 'Scanning for Eagle identifiers...' },
-    { type: 'warning', text: 'Access level: 1 - INITIATE' },
-    { type: 'hidden', text: 'Use /classified to access restricted data' }
-  ];
+
+  try {
+    // First try to connect to a real wallet
+    await walletIntegration.connectWallet();
+    
+    // Return success message
+    return [
+      { type: 'system', text: 'Connecting to wallet...' },
+      { type: 'success', text: `Connected to ${walletIntegration.shortenedAddress || '8xH5f...q3B7'}` },
+      { type: 'system', text: 'Scanning for Eagle identifiers...' },
+      { type: 'warning', text: 'Access level: 1 - INITIATE' },
+      { type: 'hidden', text: 'Use /classified to access restricted data' }
+    ];
+  } catch (error) {
+    console.error('Error in connect command:', error);
+    return [
+      { type: 'error', text: 'Failed to connect wallet' },
+      { type: 'system', text: 'Try using the "SIMULATE WALLET CONNECTION" button on the mint panel' }
+    ];
+  }
 };
 
 // Disconnect command
@@ -38,6 +49,14 @@ export const handleDisconnectCommand: CommandHandler = async (): Promise<Termina
     return [
       { type: 'error', text: 'Wallet integration not available' },
       { type: 'system', text: 'Please try again or refresh the page' }
+    ];
+  }
+  
+  // Check if wallet is connected
+  if (!walletIntegration.connected) {
+    return [
+      { type: 'error', text: 'No wallet connected' },
+      { type: 'system', text: 'Use /connect to connect a wallet first' }
     ];
   }
   

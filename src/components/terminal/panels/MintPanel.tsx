@@ -1,3 +1,5 @@
+// src/components/terminal/panels/MintPanel.tsx
+
 'use client';
 import { useState } from 'react';
 import { useWalletIntegration } from '@/contexts/WalletContext';
@@ -7,7 +9,7 @@ export default function MintPanel() {
   const [mintQuantity, setMintQuantity] = useState(1);
   const [mintingInProgress, setMintingInProgress] = useState(false);
   
-  const { connected, connectWallet } = useWalletIntegration();
+  const { connected, connectWallet, simulateWalletConnection } = useWalletIntegration();
   const { addEntries } = useTerminal();
   
   // Generate random Eagle NFT data
@@ -66,8 +68,8 @@ export default function MintPanel() {
     // Check if wallet is connected
     if (!connected) {
       addEntries([
-        { type: 'error', text: 'ERROR: Wallet not connected' },
-        { type: 'system', text: 'Use /connect to connect your wallet before minting' }
+        { type: 'error' as const, text: 'ERROR: Wallet not connected' },
+        { type: 'system' as const, text: 'Use /connect to connect your wallet before minting' }
       ]);
       return;
     }
@@ -85,9 +87,9 @@ export default function MintPanel() {
       
       // Add to terminal history
       const responses = [
-        { type: 'system', text: `Processing mint transaction...` },
-        { type: 'success', text: `Successfully minted ${mintQuantity} E3 Eagle${mintQuantity > 1 ? 's' : ''}!` },
-        { type: 'data', text: newMints.map(eagle => eagle.id).join(', ') }
+        { type: 'system' as const, text: `Processing mint transaction...` },
+        { type: 'success' as const, text: `Successfully minted ${mintQuantity} E3 Eagle${mintQuantity > 1 ? 's' : ''}!` },
+        { type: 'data' as const, text: newMints.map(eagle => eagle.id).join(', ') }
       ];
       
       addEntries(responses);
@@ -97,7 +99,22 @@ export default function MintPanel() {
   
   // Simulate wallet connection (for testing only)
   const handleSimulateWallet = () => {
-    connectWallet();
+    try {
+      // Use the simulateWalletConnection function directly
+      simulateWalletConnection();
+      
+      // Notify the user in the terminal
+      addEntries([
+        { type: 'system' as const, text: 'Simulating wallet connection...' },
+        { type: 'success' as const, text: 'Connected to simulated wallet: 8xH5f...q3B7' }
+      ]);
+    } catch (error) {
+      console.error('Error simulating wallet:', error);
+      addEntries([
+        { type: 'error' as const, text: 'Failed to simulate wallet connection' },
+        { type: 'system' as const, text: 'Please refresh the page and try again' }
+      ]);
+    }
   };
   
   return (

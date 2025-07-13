@@ -1,4 +1,5 @@
-'use client';
+// src/contexts/WalletContext.tsx
+
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { 
   ConnectionProvider,
@@ -15,6 +16,13 @@ import { CoinbaseWalletAdapter } from '@solana/wallet-adapter-coinbase';
 import { LedgerWalletAdapter } from '@solana/wallet-adapter-ledger';
 import { clusterApiUrl } from '@solana/web3.js';
 import { shortenAddress } from '@/utils/addresses';
+
+// Add Solana property to window type
+declare global {
+  interface Window {
+    solana?: any;
+  }
+}
 
 // Create internal wallet context for our app-specific wallet functionality
 const InternalWalletContext = createContext<{
@@ -84,10 +92,19 @@ function WalletInitializer({ children }: { children: ReactNode }) {
   // Connect wallet function
   const connectWallet = async () => {
     try {
-      // Try to connect using the wallet adapter
-      await connect();
+      if (window && window.solana) {
+        // Try to connect using the wallet adapter
+        await connect();
+      } else {
+        // Fall back to simulated wallet if no real wallet available
+        console.log('No wallet detected, using simulated wallet');
+        setIsSimulatedWallet(true);
+      }
     } catch (error) {
       console.error('Error connecting wallet:', error);
+      // Fall back to simulated wallet on error
+      console.log('Error connecting to wallet, using simulated wallet');
+      setIsSimulatedWallet(true);
     }
   };
   

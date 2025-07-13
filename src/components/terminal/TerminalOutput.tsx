@@ -1,14 +1,17 @@
+// src/components/terminal/TerminalOutput.tsx
+
 'use client';
 import { forwardRef } from 'react';
 import { TerminalEntry } from '@/contexts/TerminalContext';
 
 interface TerminalOutputProps {
   history: TerminalEntry[];
+  glitchEffect?: boolean;
 }
 
 // Forward ref to access the DOM element for auto-scrolling
 const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>(
-  function TerminalOutput({ history }, ref) {
+  function TerminalOutput({ history, glitchEffect }, ref) {
     return (
       <div 
         ref={ref}

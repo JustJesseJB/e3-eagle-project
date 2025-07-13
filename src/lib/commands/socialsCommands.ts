@@ -1,3 +1,5 @@
+// src/lib/commands/socialsCommands.ts
+
 import { TerminalEntry } from '@/contexts/TerminalContext';
 import { commandRegistry, CommandHandler } from './commandProcessor';
 
@@ -17,6 +19,14 @@ const PLATFORMS = {
     name: 'Telegram',
     url: 'https://t.me/e3eagles', // Replace with actual Telegram group
     shareText: 'Join the E3 Eagles community on Telegram!'
+  }
+};
+
+// Function to open URLs
+const openURL = (url: string): void => {
+  if (typeof window !== 'undefined') {
+    // Open in a new tab
+    window.open(url, '_blank');
   }
 };
 
@@ -55,41 +65,38 @@ export const handleTwitterCommand: CommandHandler = async (args: string[]): Prom
   const encodedText = encodeURIComponent(shareText);
   const twitterUrl = `${PLATFORMS.twitter.url}?text=${encodedText}`;
   
+  // Open the URL in a new tab
+  openURL(twitterUrl);
+  
   return [
     { type: 'system', text: 'Preparing Twitter share...' },
     { type: 'data', text: `Message: "${shareText}"` },
     { type: 'success', text: 'Twitter share link generated' },
-    { type: 'system', text: `Link: ${twitterUrl}` },
-    { 
-      type: 'system', 
-      text: '(In the final implementation, this would open a new browser tab with the pre-filled tweet)' 
-    }
+    { type: 'system', text: `Link: ${twitterUrl}` }
   ];
 };
 
 // Discord command - connects to Discord
 export const handleDiscordCommand: CommandHandler = async (): Promise<TerminalEntry[]> => {
+  // Open the Discord invite link in a new tab
+  openURL(PLATFORMS.discord.url);
+  
   return [
     { type: 'system', text: 'Connecting to E3 Eagles Discord community...' },
     { type: 'success', text: 'Discord invite link generated' },
-    { type: 'system', text: `Link: ${PLATFORMS.discord.url}` },
-    { 
-      type: 'system', 
-      text: '(In the final implementation, this would open the Discord invite in a new tab)' 
-    }
+    { type: 'system', text: `Link: ${PLATFORMS.discord.url}` }
   ];
 };
 
 // Telegram command - connects to Telegram
 export const handleTelegramCommand: CommandHandler = async (): Promise<TerminalEntry[]> => {
+  // Open the Telegram group link in a new tab
+  openURL(PLATFORMS.telegram.url);
+  
   return [
     { type: 'system', text: 'Connecting to E3 Eagles Telegram group...' },
     { type: 'success', text: 'Telegram group link generated' },
-    { type: 'system', text: `Link: ${PLATFORMS.telegram.url}` },
-    { 
-      type: 'system', 
-      text: '(In the final implementation, this would open the Telegram group in a new tab)' 
-    }
+    { type: 'system', text: `Link: ${PLATFORMS.telegram.url}` }
   ];
 };
 
