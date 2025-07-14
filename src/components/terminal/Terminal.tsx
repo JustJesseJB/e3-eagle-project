@@ -143,6 +143,11 @@ export default function Terminal() {
       setShowChatPanel(true);
       setShowMintPanel(false);
       setShowSecretPanel(false);
+    } else if (command.trim().toLowerCase().startsWith('/showcase')) {
+      // Open chat panel when showcase command is used
+      setShowChatPanel(true);
+      setShowMintPanel(false);
+      setShowSecretPanel(false);
     } else if (command.trim().toLowerCase() === '/classified' || command.trim().toLowerCase() === 'classified') {
       if (connected && accessLevel > 0) {
         setShowSecretPanel(true);

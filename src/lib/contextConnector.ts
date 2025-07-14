@@ -1,24 +1,12 @@
 // src/lib/contextConnector.ts
 
 import { useEffect } from 'react';
-import { setWalletIntegration } from './commands/walletCommands';
+import { setWalletIntegration, setAdminContext } from './commands/walletCommands';
 import { setAssetsContext } from './commands/assetsCommands';
-// Fix: Remove import that's causing error
-// import { setAdminContext } from './commands/adminCommands';
+import { setChatContexts } from './commands/chatCommands';
 import { useWalletIntegration } from '@/contexts/WalletContext';
 import { useAssets } from '@/contexts/AssetsContext';
 import { useAdmin } from '@/contexts/AdminContext';
-
-// Define a local setAdminContext function to avoid import error
-const setAdminContext = (context: ReturnType<typeof useAdmin>) => {
-  console.log('Admin context set locally in contextConnector.ts');
-  
-  // Store in a local variable if needed
-  const adminContext = context;
-  
-  // Note: This is a workaround until the adminCommands.ts file is properly set up
-  // When that file exists, we can import the function directly
-};
 
 /**
  * This hook connects all the contexts to their respective command handlers
@@ -34,6 +22,9 @@ export function useContextConnector() {
     setWalletIntegration(walletIntegration);
     setAssetsContext(assetsContext);
     setAdminContext(adminContext);
+    
+    // Connect chat contexts for showcase command functionality
+    setChatContexts(walletIntegration, assetsContext);
     
     console.log('All contexts connected to command handlers');
   }, [walletIntegration, assetsContext, adminContext]);
